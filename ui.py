@@ -2,10 +2,13 @@ from PyQt6.QtWidgets import (
     QMainWindow, QSystemTrayIcon, QStyle, QWidget, QVBoxLayout, QPushButton,
     QHBoxLayout, QLineEdit
 )
+from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QIntValidator
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from snipping import Snipping
 from storage import Storage
+from pathlib import Path
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -13,7 +16,12 @@ class MainWindow(QMainWindow):
         self.snip = Snipping()
         self.storage = Storage()
         
-        self.setup_notification()        
+        self.snips = []
+        self.snips = self.storage.get_snips()
+        self.select_idx = None
+
+        self.setup_notification()
+        self.setup_sound_effects()
         self.setup_ui()
         self.setup_connections()
         
@@ -21,6 +29,15 @@ class MainWindow(QMainWindow):
         self.tray = QSystemTrayIcon(self)
         self.tray.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.tray.show()
+
+    def setup_sound_effects(self):
+        BASE_DIR = Path(__file__).resolve().parent
+        snap_file = BASE_DIR / "sound_effects/snap.wav"
+
+        self.sound = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.sound.setAudioOutput(self.audio_output)
+        self.sound.setSource(QUrl.fromLocalFile(str(snap_file)))
 
     def setup_ui(self):
         self.setGeometry(100, 100, 400, 300)
@@ -67,6 +84,20 @@ class MainWindow(QMainWindow):
     def setup_connections(self):
         self.snip_button.clicked.connect(self.snip_screen)
     
+    # View Logic
+    def render_snips(self):
+        pass
+
+    def select_snip(self):
+        pass
+
+    def back_snip(self):
+        pass
+
+    def delete_snip(self):
+        pass
+
+    # Snip Logic
     def show_notifications(self, title, message=''):
         self.tray.showMessage(
             title,
@@ -76,9 +107,29 @@ class MainWindow(QMainWindow):
         )
 
     def snip_screen(self):
+        x = self.x_coords.text()
+        y = self.y_coords.text()
+        w = self.width_coords.text()
+        h = self.height_coords.text()
+
         self.show_notifications("Screenshot Taken...")
-        x = int(self.x_coords.text())
-        y = int(self.y_coords.text())
-        w = int(self.width_coords.text())
-        h = int(self.height_coords.text())
+        self.sound.play()
         self.snip.screenshot(x, y, w, h)
+
+    # UI Visibility
+    def set_layout_visible(self, layout, visible):
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+
+            if item.widget():
+                if visible:
+                    item.widget().show()
+                else:
+                    item.widget().hide()
+            elif item.layout():
+                self.set_layout_visible(item.layout(), visible)
+
+    # Close Database
+    def closeEvent(self, event):
+        self.storage.close()
+        event.accept()

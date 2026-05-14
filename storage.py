@@ -27,6 +27,14 @@ class Storage:
         )
         self.conn.commit()
         
+    def get_snips(self, id=None):
+        if id is None:
+            self.cursor.execute("SELECT * FROM snip")
+            return self.cursor.fetchall()
+        else:
+            self.cursor.execute("SELECT * FROM snip WHERE id = ?", (id,))
+            return self.cursor.fetchone()
+
     def update_snip(self, id, name):
         self.cursor.execute("UPDATE snip SET name = ? WHERE id = ?", (name, id))
         self.conn.commit()
