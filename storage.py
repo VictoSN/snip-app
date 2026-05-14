@@ -14,16 +14,20 @@ class Storage:
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 name TEXT NOT NULL,
                                 ocr_text TEXT NOT NULL,
+                                x INTEGER,
+                                y INTEGER,
+                                width INTEGER,
+                                height INTEGER,
                                 date TEXT NOT NULL,
                                 filepath TEXT NOT NULL
                             )
                             """)
         self.conn.commit()
         
-    def add_snip(self, name, ocr_text, date, filepath):
+    def add_snip(self, name, ocr_text, x, y, width, height, date, filepath):
         self.cursor.execute(
-            "INSERT INTO snip (name, ocr_text, date, filepath) VALUES (?, ?, ?, ?)",
-            (name, ocr_text, date, filepath)
+            "INSERT INTO snip (name, ocr_text, x, y, width, height, date, filepath) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, ocr_text, x, y, width, height, date, filepath)
         )
         self.conn.commit()
         
@@ -61,5 +65,9 @@ class Storage:
             self.cursor.execute("DELETE FROM snip WHERE id = ?", (id,))
         self.conn.commit()
     
+    def delete_table(self):
+        self.cursor.execute("DROP TABLE IF EXISTS snip")
+        self.conn.commit()
+
     def close(self):
         self.conn.close()

@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.snip = Snipping()
         self.storage = Storage()
-        
+
         self.snips = []
         self.snips = self.storage.get_snips()
         self.select_idx = None
