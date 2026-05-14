@@ -1,10 +1,10 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QSystemTrayIcon, QStyle, QWidget, QVBoxLayout, QPushButton,
-    QHBoxLayout, QLineEdit, QLabel, QApplication, QTextEdit
+    QHBoxLayout, QLineEdit, QLabel, QApplication, QTextEdit, QScrollArea
 )
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QUrl, Qt, QTimer
 from PyQt6.QtGui import QIntValidator, QPixmap
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PyQt6.QtMultimedia import QSoundEffect
 
 from snipping import Snipping
 from storage import Storage
@@ -14,13 +14,13 @@ from datetime import datetime
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.snipping = Snipping()
-        self.storage = Storage()
+        self.snipping = Snipping() # Handles the capture logic
+        self.storage = Storage() # Handle the database operation
 
         self.snips = []
+        self.snip = None # Currently selected snip data
         self.snips = self.storage.get_snips()
         self.selected_idx = None
-        self.snip = None
 
         self.setup_notification()
         self.setup_sound_effects()
@@ -38,9 +38,8 @@ class MainWindow(QMainWindow):
         BASE_DIR = Path(__file__).resolve().parent
         snap_file = BASE_DIR / "sound_effects/snap.wav"
 
-        self.sound = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.sound.setAudioOutput(self.audio_output)
+        # Much faster than QMediaPlayer
+        self.sound = QSoundEffect()
         self.sound.setSource(QUrl.fromLocalFile(str(snap_file)))
 
     def setup_ui(self):
@@ -52,6 +51,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         
         # Viewer Layout
+        ## Displays the selected screenshot details and buttons
         self.viewer_layout = QVBoxLayout()
         self.viewer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         main_layout.addLayout(self.viewer_layout)
@@ -79,11 +79,19 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.copy_button)
 
         # List Layout
-        self.list_layout = QVBoxLayout()
+        ## Displays all the saved screenshots
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+
+        self.list_container = QWidget()
+        self.list_layout = QVBoxLayout(self.list_container)
         self.list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        main_layout.addLayout(self.list_layout)
+
+        self.scroll.setWidget(self.list_container)
+        main_layout.addWidget(self.scroll)
 
         # Control Layout
+        ## Screenshot controls
         self.control_layout = QVBoxLayout()
         main_layout.addLayout(self.control_layout)
 
@@ -117,12 +125,14 @@ class MainWindow(QMainWindow):
     
     def setup_connections(self):
         self.snip_button.clicked.connect(self.snip_screen)
+        self.snip_name.editingFinished.connect(self.update_snip_name)
         self.back_button.clicked.connect(self.back_snip)
         self.delete_button.clicked.connect(self.delete_snip)
         self.copy_button.clicked.connect(self.copy_snip)
     
     # View Logic
     def clear_render(self, layout):
+        # Recursively delete old rendered widgets/layouts
         while layout.count():
             item = layout.takeAt(0)
             if item.widget():
@@ -150,6 +160,8 @@ class MainWindow(QMainWindow):
             title = QLabel(snip[1])
             date = QLabel(formatted_date)
             btn = QPushButton("View")
+
+            # Store idx in lambda default argument to avoid late-binding closure issue
             btn.clicked.connect(lambda _, idx=i: self.select_snip(idx))
 
             snip_layout.addWidget(title)
@@ -159,6 +171,7 @@ class MainWindow(QMainWindow):
 
     def set_snip_image(self):
         pixmap = QPixmap(self.snip[8])
+        # Scale the image while preserving the aspect ratio
         scaled = pixmap.scaled(
             500,
             500,
@@ -169,24 +182,26 @@ class MainWindow(QMainWindow):
     def select_snip(self, idx):
         self.selected_idx = idx
         self.snip = self.snips[idx]
-        print(self.snip)
 
         self.snip_name.setText(self.snip[1])
         self.set_snip_image()
         self.snip_text.setText(self.snip[2])
 
-        self.set_layout_visible(self.viewer_layout, True)
-        self.set_layout_visible(self.list_layout, False)
-        self.set_layout_visible(self.control_layout, False)
+        # Toggle between list mode and viewer mode
+        self.set_view_mode(True)   
+
+    def update_snip_name(self):
+        if self.snip is None:
+            return
+        self.storage.update_snip(self.snip[0], self.snip_name.text())
 
     def delete_snip(self):
         self.storage.delete_snip(self.snip[0])
         self.back_snip()
 
     def back_snip(self):
-        self.set_layout_visible(self.viewer_layout, False)
-        self.set_layout_visible(self.list_layout, True)
-        self.set_layout_visible(self.control_layout, True)
+        # Toggle between list mode and viewer mode
+        self.set_view_mode(False)   
         self.update_snips()
 
     def copy_snip(self):
@@ -203,15 +218,18 @@ class MainWindow(QMainWindow):
         )
 
     def snip_screen(self):
+        self.showMinimized() # Hide the program to get the text
+        # Capture current coordinate inputs, Empty values trigger fullscreen capture
         x = self.x_coords.text()
         y = self.y_coords.text()
         w = self.width_coords.text()
         h = self.height_coords.text()
 
-        self.show_notifications("Screenshot Taken...")
         self.sound.play()
+        self.show_notifications("Screenshot Taken...")
         self.snipping.screenshot(x, y, w, h)
         self.update_snips()
+        QTimer.singleShot(200, self.showNormal) # Show the program after screenshot
 
     # UI Visibility
     def set_layout_visible(self, layout, visible):
@@ -226,7 +244,14 @@ class MainWindow(QMainWindow):
             elif item.layout():
                 self.set_layout_visible(item.layout(), visible)
 
+    def set_view_mode(self, viewing: bool):
+        # True = Viewer | False = List
+        self.scroll.setVisible(not viewing)
+        self.viewer_layout.setEnabled(viewing)
+        self.control_layout.setVisible(not viewing)
+
     # Close Database
     def closeEvent(self, event):
+        print("Closing DB")
         self.storage.close()
         event.accept()

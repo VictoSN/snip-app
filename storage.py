@@ -40,6 +40,8 @@ class Storage:
             return self.cursor.fetchone()
 
     def update_snip(self, id, name):
+        if self.conn is None:
+            return
         self.cursor.execute("UPDATE snip SET name = ? WHERE id = ?", (name, id))
         self.conn.commit()
         
