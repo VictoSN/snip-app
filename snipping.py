@@ -10,8 +10,9 @@ class Snipping:
     
     def screenshot(self, x='', y='', w='', h=''):
         self.screenshots_folder.mkdir(exist_ok=True)
-        date = datetime.now().strftime('%y%m%d_%H%M%S.%f')[:-5]
-        name = "Image_" + date
+        now = datetime.now()
+        date = now.strftime('%Y%m%d_%H%M%S.%f')[:-3]
+        name = "Image_" + now.strftime('%y%m%d_%H%M%S.%f')[:-3]
         output = str(self.screenshots_folder / f"{name}.png")
         self.storage.add_snip(name, "none", x, y, w, h, date, f"{self.screenshots_folder}/{name}.png")
 
