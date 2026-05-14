@@ -1,6 +1,8 @@
 import pytesseract
 import mss, mss.tools
-from PIL import Image
+from PIL import (
+    Image, ImageOps
+)
 from storage import Storage
 from pathlib import Path
 from datetime import datetime
@@ -12,15 +14,27 @@ class Snipping:
     
     def ocr(self, img):
         pil_img = Image.frombytes("RGB", img.size, img.rgb)
+
+        # Image Processing
+        ## 1. Convert to grayscale
+        pil_img = pil_img.convert("L") 
+
+        ## 2. Upscale
+        pil_img = pil_img.resize((pil_img.width * 2, pil_img.height *2))
+
+        ## 3. Thresholds
+        pil_img = pil_img.point(lambda p: 255 if p > 160 else 0)
+
         print("OCR Done")
-        return pytesseract.image_to_string(pil_img)
+        config = "--psm 6"
+        return pytesseract.image_to_string(pil_img, config=config)
 
     def screenshot(self, x='', y='', w='', h=''):
         self.screenshots_folder.mkdir(exist_ok=True)
 
         with mss.mss() as sct:
             if not all([x, y, w, h]):
-                monitor = sct.monitors[1]
+                monitor = sct.monitors[2]
                 img = sct.grab(monitor)
             else:
                 x = int(x); y = int(y); w = int(w); h = int(h)

@@ -6,6 +6,7 @@ class Storage:
     def __init__(self, db="database.db"):
         self.conn = sqlite3.connect(db)
         self.cursor = self.conn.cursor()
+        self.closed = False
         self.create_table()
         
     def create_table(self):

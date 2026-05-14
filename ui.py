@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         self.sound.setSource(QUrl.fromLocalFile(str(snap_file)))
 
     def setup_ui(self):
-        self.setGeometry(100, 100, 400, 300)
+        self.resize(650, 500)
         self.setWindowTitle("Snipping OCR")
         
         central_widget = QWidget()
@@ -53,14 +53,17 @@ class MainWindow(QMainWindow):
         # Viewer Layout
         ## Displays the selected screenshot details and buttons
         self.viewer_layout = QVBoxLayout()
-        self.viewer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # self.viewer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         main_layout.addLayout(self.viewer_layout)
 
         self.snip_name = QLineEdit()
         self.viewer_layout.addWidget(self.snip_name)
 
         self.snip_image = QLabel()
-        self.viewer_layout.addWidget(self.snip_image)
+        self.snip_image_scroll = QScrollArea()
+        self.snip_image_scroll.setWidgetResizable(True)
+        self.snip_image_scroll.setWidget(self.snip_image)
+        self.viewer_layout.addWidget(self.snip_image_scroll)
 
         self.snip_text = QTextEdit()
         self.snip_text.setReadOnly(True)
@@ -82,6 +85,8 @@ class MainWindow(QMainWindow):
         ## Displays all the saved screenshots
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+        # self.scroll.setMinimumHeight(350)
+        # self.scroll.setMaximumHeight(600)
 
         self.list_container = QWidget()
         self.list_layout = QVBoxLayout(self.list_container)
@@ -89,6 +94,7 @@ class MainWindow(QMainWindow):
 
         self.scroll.setWidget(self.list_container)
         main_layout.addWidget(self.scroll)
+        main_layout.setStretch(1, 1)  # index 1 = scroll, give it all the stretch
 
         # Control Layout
         ## Screenshot controls
@@ -101,26 +107,27 @@ class MainWindow(QMainWindow):
         coords_validator = QIntValidator()
 
         self.x_coords = QLineEdit()
-        self.x_coords.setPlaceholderText("X")
+        self.x_coords.setPlaceholderText("X Coordinate")
         self.x_coords.setValidator(coords_validator)
         self.coords_layout.addWidget(self.x_coords)
 
         self.y_coords = QLineEdit()
-        self.y_coords.setPlaceholderText("Y")
+        self.y_coords.setPlaceholderText("Y Coordinate")
         self.y_coords.setValidator(coords_validator)
         self.coords_layout.addWidget(self.y_coords)
 
         self.width_coords = QLineEdit()
-        self.width_coords.setPlaceholderText("W")
+        self.width_coords.setPlaceholderText("Width")
         self.width_coords.setValidator(coords_validator)
         self.coords_layout.addWidget(self.width_coords)
 
         self.height_coords = QLineEdit()
-        self.height_coords.setPlaceholderText("H")
+        self.height_coords.setPlaceholderText("Height")
         self.height_coords.setValidator(coords_validator)
         self.coords_layout.addWidget(self.height_coords)
 
         self.snip_button = QPushButton("+")
+        self.snip_button.setStyleSheet("QPushButton {font-size: 28px; font-weight: bold;}")
         self.control_layout.addWidget(self.snip_button)
     
     def setup_connections(self):
@@ -168,30 +175,31 @@ class MainWindow(QMainWindow):
             snip_layout.addWidget(date)
             snip_layout.addWidget(btn)
             self.list_layout.addLayout(snip_layout)
+        self.list_layout.addStretch()
 
     def set_snip_image(self):
         pixmap = QPixmap(self.snip[8])
         # Scale the image while preserving the aspect ratio
-        scaled = pixmap.scaled(
-            500,
-            500,
-            Qt.AspectRatioMode.KeepAspectRatio
+        scaled = pixmap.scaledToWidth(
+            self.snip_image_scroll.width() - 20,
+            Qt.TransformationMode.SmoothTransformation
         )
         self.snip_image.setPixmap(scaled)
+        self.snip_image.setAlignment(Qt.AlignmentFlag.AlignTop)
 
     def select_snip(self, idx):
         self.selected_idx = idx
         self.snip = self.snips[idx]
 
         self.snip_name.setText(self.snip[1])
-        self.set_snip_image()
         self.snip_text.setText(self.snip[2])
 
         # Toggle between list mode and viewer mode
-        self.set_view_mode(True)   
+        self.set_view_mode(True)
+        QTimer.singleShot(50, self.set_snip_image)  
 
     def update_snip_name(self):
-        if self.snip is None:
+        if self.storage.close:
             return
         self.storage.update_snip(self.snip[0], self.snip_name.text())
 
@@ -201,7 +209,7 @@ class MainWindow(QMainWindow):
 
     def back_snip(self):
         # Toggle between list mode and viewer mode
-        self.set_view_mode(False)   
+        self.set_view_mode(False)
         self.update_snips()
 
     def copy_snip(self):
@@ -229,7 +237,7 @@ class MainWindow(QMainWindow):
         self.show_notifications("Screenshot Taken...")
         self.snipping.screenshot(x, y, w, h)
         self.update_snips()
-        QTimer.singleShot(200, self.showNormal) # Show the program after screenshot
+        QTimer.singleShot(100, self.showNormal) # Show the program after screenshot
 
     # UI Visibility
     def set_layout_visible(self, layout, visible):
@@ -247,11 +255,18 @@ class MainWindow(QMainWindow):
     def set_view_mode(self, viewing: bool):
         # True = Viewer | False = List
         self.scroll.setVisible(not viewing)
-        self.viewer_layout.setEnabled(viewing)
-        self.control_layout.setVisible(not viewing)
+        self.set_layout_visible(self.viewer_layout, viewing)
+        self.set_layout_visible(self.control_layout, not viewing)
 
     # Close Database
     def closeEvent(self, event):
         print("Closing DB")
+        self.storage.closed = True
         self.storage.close()
         event.accept()
+
+    # Resizes the image whenever the app's size change
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.snip is not None:
+            self.set_snip_image()
