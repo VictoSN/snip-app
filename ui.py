@@ -128,15 +128,15 @@ class MainWindow(QMainWindow):
         self.y_coords.setValidator(coords_validator)
         self.coords_layout.addWidget(self.y_coords)
 
-        self.width_coords = QLineEdit()
-        self.width_coords.setPlaceholderText("Width")
-        self.width_coords.setValidator(coords_validator)
-        self.coords_layout.addWidget(self.width_coords)
+        self.width_dimension = QLineEdit()
+        self.width_dimension.setPlaceholderText("Width")
+        self.width_dimension.setValidator(coords_validator)
+        self.coords_layout.addWidget(self.width_dimension)
 
-        self.height_coords = QLineEdit()
-        self.height_coords.setPlaceholderText("Height")
-        self.height_coords.setValidator(coords_validator)
-        self.coords_layout.addWidget(self.height_coords)
+        self.height_dimension = QLineEdit()
+        self.height_dimension.setPlaceholderText("Height")
+        self.height_dimension.setValidator(coords_validator)
+        self.coords_layout.addWidget(self.height_dimension)
 
         self.snip_button = QPushButton("+")
         self.snip_button.setStyleSheet("QPushButton {font-size: 28px; font-weight: bold;}")
@@ -241,28 +241,29 @@ class MainWindow(QMainWindow):
 
     def snip_screen(self):
         self.showMinimized() # Hide the program to get the text
-
         if self.input_option == "Mouse Select":
-            self.set_user_option()
-            self.overlay = SnipOverlay(self.take_screenshot)
+            QTimer.singleShot(100, lambda: self.create_overlay())
         elif self.input_option == "Coordinates":
-            self.set_user_option()
             # Capture current coordinate inputs, Empty values trigger fullscreen capture
-            x = self.x_coords.text()
-            y = self.y_coords.text()
-            w = self.width_coords.text()
-            h = self.height_coords.text()
-            self.take_screenshot(x, y, w, h)
+            QTimer.singleShot(100, lambda: self.take_screenshot(
+                    self.x_coords.text(), 
+                    self.y_coords.text(), 
+                    self.width_dimension.text(), 
+                    self.height_dimension.text()
+                )
+            )
         elif self.input_option == "Full Window":
-            self.set_user_option()
-            self.take_screenshot()
+            QTimer.singleShot(100, lambda: self.take_screenshot())
+
+    def create_overlay(self):
+        self.overlay = SnipOverlay(self.take_screenshot)
 
     def take_screenshot(self, x='', y='', w='', h=''):
         self.sound.play()
         self.show_notifications("Screenshot Taken!")
         self.snipping.screenshot(x, y, w, h)
         self.update_snips()
-        QTimer.singleShot(50, self.showNormal) # Show the program after screenshot
+        self.showNormal()
 
     # UI Visibility
     def set_layout_visible(self, layout, visible):
