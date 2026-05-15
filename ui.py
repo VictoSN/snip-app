@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QSystemTrayIcon, QStyle, QWidget, QVBoxLayout, QPushButton,
-    QHBoxLayout, QLineEdit, QLabel, QApplication, QTextEdit, QScrollArea
+    QHBoxLayout, QLineEdit, QLabel, QApplication, QTextEdit, QScrollArea,
+    QComboBox
 )
 from PyQt6.QtCore import QUrl, Qt, QTimer
 from PyQt6.QtGui import QIntValidator, QPixmap
@@ -8,6 +9,7 @@ from PyQt6.QtMultimedia import QSoundEffect
 
 from snipping import Snipping
 from storage import Storage
+from overlay import SnipOverlay
 from pathlib import Path
 from datetime import datetime
 
@@ -21,6 +23,7 @@ class MainWindow(QMainWindow):
         self.snip = None # Currently selected snip data
         self.snips = self.storage.get_snips()
         self.selected_idx = None
+        self.input_option = "Mouse Select" # Save the user option
 
         self.setup_notification()
         self.setup_sound_effects()
@@ -28,6 +31,7 @@ class MainWindow(QMainWindow):
         self.setup_connections()
         self.render_snips()
         self.set_layout_visible(self.viewer_layout, False)
+        self.set_layout_visible(self.coords_layout, False)
 
     def setup_notification(self):
         self.tray = QSystemTrayIcon(self)
@@ -101,9 +105,17 @@ class MainWindow(QMainWindow):
         self.control_layout = QVBoxLayout()
         main_layout.addLayout(self.control_layout)
 
+        # Dropdown
+        self.control_option_layout = QHBoxLayout()
+        self.control_layout.addLayout(self.control_option_layout)
+
+        self.snip_dropdown = QComboBox()
+        self.snip_dropdown.addItems(["Mouse Select", "Coordinates", "Full Window"])
+        self.control_option_layout.addWidget(self.snip_dropdown)
+
         # Coords Layout
         self.coords_layout = QHBoxLayout()
-        self.control_layout.addLayout(self.coords_layout)
+        self.control_option_layout.addLayout(self.coords_layout)
         coords_validator = QIntValidator()
 
         self.x_coords = QLineEdit()
@@ -136,6 +148,7 @@ class MainWindow(QMainWindow):
         self.back_button.clicked.connect(self.back_snip)
         self.delete_button.clicked.connect(self.delete_snip)
         self.copy_button.clicked.connect(self.copy_snip)
+        self.snip_dropdown.currentTextChanged.connect(self.set_user_option)
     
     # View Logic
     def clear_render(self, layout):
@@ -210,6 +223,7 @@ class MainWindow(QMainWindow):
     def back_snip(self):
         # Toggle between list mode and viewer mode
         self.set_view_mode(False)
+        self.set_user_option()
         self.update_snips()
 
     def copy_snip(self):
@@ -227,17 +241,28 @@ class MainWindow(QMainWindow):
 
     def snip_screen(self):
         self.showMinimized() # Hide the program to get the text
-        # Capture current coordinate inputs, Empty values trigger fullscreen capture
-        x = self.x_coords.text()
-        y = self.y_coords.text()
-        w = self.width_coords.text()
-        h = self.height_coords.text()
 
+        if self.input_option == "Mouse Select":
+            self.set_user_option()
+            self.overlay = SnipOverlay(self.take_screenshot)
+        elif self.input_option == "Coordinates":
+            self.set_user_option()
+            # Capture current coordinate inputs, Empty values trigger fullscreen capture
+            x = self.x_coords.text()
+            y = self.y_coords.text()
+            w = self.width_coords.text()
+            h = self.height_coords.text()
+            self.take_screenshot(x, y, w, h)
+        elif self.input_option == "Full Window":
+            self.set_user_option()
+            self.take_screenshot()
+
+    def take_screenshot(self, x='', y='', w='', h=''):
         self.sound.play()
-        self.show_notifications("Screenshot Taken...")
+        self.show_notifications("Screenshot Taken!")
         self.snipping.screenshot(x, y, w, h)
         self.update_snips()
-        QTimer.singleShot(100, self.showNormal) # Show the program after screenshot
+        QTimer.singleShot(50, self.showNormal) # Show the program after screenshot
 
     # UI Visibility
     def set_layout_visible(self, layout, visible):
@@ -257,6 +282,14 @@ class MainWindow(QMainWindow):
         self.scroll.setVisible(not viewing)
         self.set_layout_visible(self.viewer_layout, viewing)
         self.set_layout_visible(self.control_layout, not viewing)
+
+    # Hide or Show the user option for screenshots
+    def set_user_option(self):
+        self.input_option = self.snip_dropdown.currentText() # User Input for the screenshot
+        if self.input_option == "Mouse Select" or self.input_option == "Full Window":
+            self.set_layout_visible(self.coords_layout, False)
+        elif self.input_option == "Coordinates":
+            self.set_layout_visible(self.coords_layout, True)
 
     # Close Database
     def closeEvent(self, event):

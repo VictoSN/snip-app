@@ -34,7 +34,10 @@ class Snipping:
 
         with mss.mss() as sct:
             if not all([x, y, w, h]):
-                monitor = sct.monitors[2]
+                # 0 = All monitors
+                # 1 = Main Monitor
+                # 2 = Secondary Monitor and etc..
+                monitor = sct.monitors[1]
                 img = sct.grab(monitor)
             else:
                 x = int(x); y = int(y); w = int(w); h = int(h)
