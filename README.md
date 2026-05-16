@@ -30,8 +30,8 @@ A Python desktop application made with PyQt6 for capturing screenshots and extra
 ### Multiple Snips
 ![Multiple Snips](/images/Multiple.png)
 
-### View
-![View](/images/View.png)
+### Viewer
+![Viewer](/images/Viewer.png)
 
 ## How to run (Windows Only)
 1. Clone the repo

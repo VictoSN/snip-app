@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QComboBox
 )
 from PyQt6.QtCore import QUrl, Qt, QTimer
-from PyQt6.QtGui import QIntValidator, QPixmap, QGuiApplication
+from PyQt6.QtGui import QIntValidator, QPixmap, QGuiApplication, QIcon
 from PyQt6.QtMultimedia import QSoundEffect
 
 from snipping import Snipping
@@ -13,9 +13,14 @@ from overlay import SnipOverlay
 from pathlib import Path
 from datetime import datetime
 
+BASE_DIR = Path(__file__).resolve().parent
+ICON_PATH = BASE_DIR / "assets" / "icon.png"
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowIcon(QIcon(str(ICON_PATH)))
+
         self.snipping = Snipping() # Handles the capture logic
         self.storage = Storage() # Handle the database operation
 
@@ -37,7 +42,7 @@ class MainWindow(QMainWindow):
 
     def setup_notification(self):
         self.tray = QSystemTrayIcon(self)
-        self.tray.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
+        self.tray.setIcon(QIcon(str(ICON_PATH)))        
         self.tray.show()
 
     def setup_sound_effects(self):
@@ -59,10 +64,10 @@ class MainWindow(QMainWindow):
         # Viewer Layout
         ## Displays the selected screenshot details and buttons
         self.viewer_layout = QVBoxLayout()
-        # self.viewer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         main_layout.addLayout(self.viewer_layout)
 
         self.snip_name = QLineEdit()
+        self.snip_name.setPlaceholderText("Snip Name")
         self.viewer_layout.addWidget(self.snip_name)
 
         self.snip_image = QLabel()
@@ -82,17 +87,17 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.back_button)
 
         self.delete_button = QPushButton("Delete")
+        self.delete_button.setObjectName("delete_button")
         button_layout.addWidget(self.delete_button)
 
         self.copy_button = QPushButton("Copy")
+        self.copy_button.setObjectName("copy_button")
         button_layout.addWidget(self.copy_button)
 
         # List Layout
         ## Displays all the saved screenshots
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        # self.scroll.setMinimumHeight(350)
-        # self.scroll.setMaximumHeight(600)
 
         self.list_container = QWidget()
         self.list_layout = QVBoxLayout(self.list_container)
@@ -146,16 +151,94 @@ class MainWindow(QMainWindow):
         self.coords_layout.addWidget(self.height_dimension)
 
         self.snip_button = QPushButton("+")
-        self.snip_button.setStyleSheet("QPushButton {font-size: 28px; font-weight: bold;}")
+        self.snip_button.setObjectName("snip_button")
         self.control_layout.addWidget(self.snip_button)
     
     def setup_style(self):
-        pass
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #121212;
+                color: #e6e6e6;
+                font-size: 13px;
+            }
+
+            QLineEdit, QTextEdit, QComboBox {
+                background-color: #1a1a1a;
+                border: 1px solid #2a2a2a;
+                border-radius: 6px;
+                padding: 6px 10px;
+                selection-background-color: #3a3a3a;
+            }
+
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+                border: 1px solid #444;
+            }
+
+            QPushButton {
+                background-color: #1a1a1a;
+                border: 1px solid #2a2a2a;
+                border-radius: 6px;
+                padding: 6px 12px;
+            }
+
+            QPushButton:hover {
+                background-color: #2a2a2a;
+                border-color: #444;
+            }
+
+            QPushButton:pressed {
+                background-color: #2a2a2a;
+            }
+
+            QPushButton#snip_button {
+                font-size: 26px;
+                font-weight: bold;
+            }
+
+            QPushButton#delete_button {
+                color: #c0392b;
+                border-color: #3a1a1a;
+            }
+ 
+            QPushButton#delete_button:hover {
+                background-color: #2a1111;
+                border-color: #c0392b;
+            }
+ 
+            QPushButton#copy_button {
+                color: #27ae60;
+                border-color: #1a3a1a;
+            }
+ 
+            QPushButton#copy_button:hover {
+                background-color: #112a11;
+                border-color: #27ae60;
+            }
+
+            QScrollBar:vertical {
+                background: transparent;
+                width: 6px;
+            }
+
+            QScrollBar::handle:vertical {
+                background: #333;
+                border-radius: 3px;
+            }
+
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {
+                height: 0;
+            }
+        """)
 
     def setup_monitor(self):
-        self.monitor_dropdown.addItem(f"All Monitor", 0)
-        for i in range(1, len(QGuiApplication.screens()) + 1):
-            self.monitor_dropdown.addItem(f"Monitor {i}", i)
+        if len(QGuiApplication.screens()) > 1:
+            self.monitor_dropdown.addItem(f"All Monitor", 0)
+            for i in range(1, len(QGuiApplication.screens()) + 1):
+                self.monitor_dropdown.addItem(f"Monitor {i}", i)
+            return
+        self.monitor_dropdown.addItem(f"Monitor 1", 1)
+        
 
     def setup_connections(self):
         self.snip_dropdown.currentTextChanged.connect(self.set_user_option)
@@ -269,7 +352,7 @@ class MainWindow(QMainWindow):
             )
 
             if not field.text().strip():
-                field.setStyleSheet("border: 2px solid red;")
+                field.setStyleSheet("border: 2px solid red; padding: 5px")
                 valid = False
             else:
                 field.setStyleSheet("")
@@ -307,7 +390,7 @@ class MainWindow(QMainWindow):
     def take_screenshot(self, x='', y='', w='', h=''):
         self.sound.play()
 
-        name = self.snipping.screenshot(x, y, w, h, self.monitor_dropdown.currentData())
+        name = self.snipping.screenshot(x, y, w, h, self.monitor_dropdown.currentData() or 1)
         self.show_notifications("Screenshot Taken!", name)
         
         self.update_snips()

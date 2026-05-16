@@ -1,5 +1,6 @@
 import pytesseract
 import mss, mss.tools
+from PyQt6.QtWidgets import QApplication
 from PIL import Image
 from storage import Storage
 from pathlib import Path
@@ -23,6 +24,14 @@ class Snipping:
 
     def screenshot(self, x='', y='', w='', h='', monitor_index=1):
         self.screenshots_folder.mkdir(exist_ok=True)
+
+        # Adjust the coordinates with the scaling of the monitor
+        if all([x, y, w, h]):
+            ratio = QApplication.primaryScreen().devicePixelRatio()
+            x = int(int(x) * ratio)
+            y = int(int(y) * ratio)
+            w = int(int(w) * ratio)
+            h = int(int(h) * ratio)
 
         with mss.mss() as sct:
             monitor = sct.monitors[monitor_index]

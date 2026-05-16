@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QRect
 from PyQt6.QtGui import QPainter, QColor, QPixmap
 import mss, mss.tools
@@ -28,8 +28,17 @@ class SnipOverlay(QWidget):
             tmp = tempfile.mktemp(suffix=".png")
             mss.tools.to_png(img.rgb, img.size, output=tmp)
             pixmap = QPixmap(tmp)
+
+            # Adjust the overlay with the monitor's scaling
+            screen = QApplication.primaryScreen()
+            scaled = pixmap.scaled(
+                screen.geometry().width(),
+                screen.geometry().height(),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
             os.remove(tmp)
-            return pixmap
+            return scaled
 
     def paintEvent(self, event):
         painter = QPainter(self)
